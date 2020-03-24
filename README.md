@@ -2,10 +2,9 @@ Written from the [official Flink Kubernetes documentation](https://ci.apache.org
 
 A mount to a PVC storage has been add on `/mnt` (inside the pod). 
 
-⚠️ **Change the PVC name in  before creating the deployment** in files:
+⚠️ **Change the PVC name in  before creating the deployment**
 
-* jobmanager-deployment.yaml
-* taskmanager-deployment.yaml
+Change it in files `jobmanager-deployment.yaml` and `taskmanager-deployment.yaml`
 
 Script to deploy Flink Job and Task managers in the current project. 
 
