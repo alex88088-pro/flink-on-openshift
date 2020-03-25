@@ -53,6 +53,8 @@ spec:
             path: flink-conf.yaml
           - key: log4j.properties
             path: log4j.properties
+          - key: log4j-cli.properties
+            path: log4j-cli.properties
       - name: pvc-volume
         persistentVolumeClaim:
           claimName: pvc-mapr-projects-test-vincent
