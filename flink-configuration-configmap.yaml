@@ -7,12 +7,12 @@ metadata:
 data:
   flink-conf.yaml: |+
     jobmanager.rpc.address: flink-jobmanager
-    taskmanager.numberOfTaskSlots: 10
+    taskmanager.numberOfTaskSlots: 64
     blob.server.port: 6124
     jobmanager.rpc.port: 6123
     taskmanager.rpc.port: 6122
-    jobmanager.heap.size: 1024m
-    taskmanager.memory.process.size: 1024m
+    jobmanager.heap.size: 50g
+    taskmanager.memory.process.size: 50g
   log4j.properties: |+
     log4j.rootLogger=INFO, file
     log4j.logger.akka=INFO
