@@ -1,12 +1,14 @@
-Written from the [official Flink Kubernetes documentation](https://ci.apache.org/projects/flink/flink-docs-stable/ops/deployment/kubernetes.html). Images built from [apache/flink](https://github.com/apache/flink).
+See the [DSRI documentation](https://maastrichtu-ids.github.io/dsri-documentation) to deploy it on the Data Science Research Infrastructure (OpenShift cluster at [Maastricht University](https://maastrichtuniversity.nl)).
 
-A mount to a PVC storage has been add on `/mnt` (inside the pod). 
+Deployment written from the [official Flink Kubernetes documentation](https://ci.apache.org/projects/flink/flink-docs-stable/ops/deployment/kubernetes.html). Images built from [apache/flink](https://github.com/apache/flink).
+
+In this deployment a PVC storage has been mounted on `/mnt` (inside the pod). 
 
 ⚠️ **Change the PVC name in  before creating the deployment**
 
-Change it in files `jobmanager-deployment.yaml` and `taskmanager-deployment.yaml`
+Change it at the end of files `jobmanager-deployment.yaml` and `taskmanager-deployment.yaml`
 
-Script to deploy Flink Job and Task managers in the current project. 
+Script to deploy Flink Job and Task managers in the current project:
 
 ```bash
 oc project my-project
