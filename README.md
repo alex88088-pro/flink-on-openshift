@@ -11,7 +11,13 @@ Change it at the end of files `jobmanager-deployment.yaml` and `taskmanager-depl
 Script to deploy Flink Job and Task managers in the current project:
 
 ```bash
+# Login to the OpenShift cluster
+oc login https://<openshift-url>:8443 --token=<openshift-token>
+
+# Go to the project where you want to deploy Apache Flink
 oc project my-project
+
+# Deploy 1 Job manager and 2 Task manager pods
 ./create_deployment.sh
 ```
 
