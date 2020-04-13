@@ -16,14 +16,33 @@ oc login https://<openshift-url>:8443 --token=<openshift-token>
 
 # Go to the project where you want to deploy Apache Flink
 oc project my-project
+```
 
-# Deploy 1 Job manager and 2 Task manager pods
+## Deploy
+
+Deploy 1 Job manager and 2 Task manager pods
+
+```bash
 ./create_deployment.sh
 ```
 
-> Flink home folder inside the pod is `/opt/flink`
+> Flink home folder inside the pods is `/opt/flink`
 
-> PVC shared in `/mnt`
+> PVC shared in `/mnt` inside the pods.
+
+## Connect to pod
+
+Use this command to get the Flink Jobmanager **Pod ID** and copy files to the pod.
+
+```bash
+oc get pod --selector app=flink --selector component=jobmanager --no-headers -o=custom-columns=NAME:.metadata.name
+
+# Example creating the workspace folder and copying the RMLStreamer.jar to the pod
+oc exec <pod_id> -- mkdir -p /mnt/workspace/resources
+oc cp folder-to-copy/ <pod_id>:/mnt/
+```
+
+## Delete
 
 Delete the deployed services:
 
@@ -31,7 +50,9 @@ Delete the deployed services:
 ./delete_deployment.sh
 ```
 
-Details of command:
+## Details
+
+Details of create command:
 
 ```bash
 oc create -f flink-configuration-configmap.yaml
