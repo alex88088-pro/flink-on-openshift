@@ -25,7 +25,13 @@ oc project my-project
 
 > PVC shared in `/mnt`
 
-Details of commands:
+Delete the deployed services:
+
+```bash
+./delete_deployment.sh
+```
+
+Details of command:
 
 ```bash
 oc create -f flink-configuration-configmap.yaml
