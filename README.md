@@ -18,17 +18,25 @@ oc login https://<openshift-url>:8443 --token=<openshift-token>
 oc project my-project
 ```
 
-## Deploy
+## Deploy Flink Scala
 
 Deploy 1 Job manager and 2 Task manager pods
 
 ```bash
-./create_deployment.sh
+./scala_create_deployment.sh
 ```
 
 > Flink home folder inside the pods is `/opt/flink`
 
 > PVC shared in `/mnt` inside the pods.
+
+## Deploy Flink RMLStreamer
+
+Similarly a deployment customized for the RMLStreamer can be deployed:
+
+```bash
+./rmlstreamer_create_deployment.sh
+```
 
 ## Connect to pod
 
@@ -42,12 +50,18 @@ oc exec <pod_id> -- mkdir -p /mnt/workspace/resources
 oc cp folder-to-copy/ <pod_id>:/mnt/
 ```
 
-## Delete
+## Delete deployment
 
 Delete the deployed services:
 
 ```bash
-./delete_deployment.sh
+./scala_delete_deployment.sh
+```
+
+Or for the RMLStreamer:
+
+```bash
+./rmlstreamer_delete_deployment.sh
 ```
 
 ## Details
