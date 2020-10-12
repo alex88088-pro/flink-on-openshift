@@ -1,0 +1,325 @@
+---
+kind: Template
+apiVersion: v1
+labels:
+  template: apache-flink
+metadata:
+  name: apache-flink
+  annotations:
+    openshift.io/display-name: Apache Flink cluster
+    description: |-
+      Start Apache Flink cluster 🐿️
+
+      Apache Flink® is an open-source stream processing framework for distributed, high-performing, always-available, and accurate data streaming applications.
+
+      🗄️ Data stored on an existing persistent storage in the specified folder
+
+      🔒 You need root containers enabled (aka. anyuid) in your project to start this application.
+    iconClass: icon-apache
+    tags: apache,flink,stream,scala
+    openshift.io/provider-display-name: Institute of Data Science, UM
+    openshift.io/documentation-url: https://maastrichtu-ids.github.io/dsri-documentation/docs/deploy-additional-services#apache-flink
+    openshift.io/support-url: https://maastrichtu-ids.github.io/dsri-documentation/help
+    template.openshift.io/bindable: 'false'
+parameters:
+- name: APPLICATION_NAME
+  value: flink-cluster
+  required: true
+- name: FLINK_IMAGE
+  value: flink:1.9.1-scala_2.11
+  required: true
+  description: For the RMLStreamer use umids/flink-rmlstreamer:v2.0.0
+# - name: PASSWORD
+#   from: "[a-f0-9]{32}"
+#   generate: expression
+- name: STORAGE_SIZE
+  displayName: Storage size
+  description: Size of the storage used for the notebook (approximate).
+  value: 20Gi
+  required: true
+- name: MEMORY_LIMIT
+  displayName: Memory limit
+  description: Maximum RAM memory available for the application.
+  value: "10Gi"
+  required: true
+- name: CPU_LIMIT
+  displayName: CPU limit
+  description: Number of CPUs available for the application (in millicore, 1 CPU = 1000m).
+  value: "4000m"
+  required: true
+- name: STORAGE_NAME
+  displayName: Storage name
+  description: Name of the Persistent Volume Claim used for storage.
+  value: pvc-mapr-projects-myproject
+  required: true
+- name: STORAGE_FOLDER
+  displayName: Storage folder
+  description: Path to the folder used for storage in the the Persistent Volume Claim
+  value: flink
+  required: false
+
+objects:
+- apiVersion: "v1"
+  kind: "PersistentVolumeClaim"
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: "${APPLICATION_NAME}"
+  spec:
+    accessModes:
+      - "ReadWriteMany"
+    resources:
+      requests:
+        storage: ${STORAGE_SIZE}
+
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${APPLICATION_NAME}-config
+    labels:
+      app: ${APPLICATION_NAME}
+  data:
+    flink-conf.yaml: |+
+      jobmanager.rpc.address: ${APPLICATION_NAME}-jobmanager
+      taskmanager.numberOfTaskSlots: 64
+      blob.server.port: 6124
+      jobmanager.rpc.port: 6123
+      taskmanager.rpc.port: 6122
+      jobmanager.heap.size: 50g
+      taskmanager.memory.process.size: 50g
+    log4j.properties: |+
+      log4j.rootLogger=INFO, file
+      log4j.logger.akka=INFO
+      log4j.logger.org.apache.kafka=INFO
+      log4j.logger.org.apache.hadoop=INFO
+      log4j.logger.org.apache.zookeeper=INFO
+      log4j.appender.file=org.apache.log4j.FileAppender
+      log4j.appender.file.file=${log.file}
+      log4j.appender.file.layout=org.apache.log4j.PatternLayout
+      log4j.appender.file.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
+      log4j.logger.org.apache.flink.shaded.akka.org.jboss.netty.channel.DefaultChannelPipeline=ERROR, file
+    log4j-cli.properties: |+
+      rootLogger.level=INFO
+      rootLogger.appenderRef.file.ref=org.apache.log4j.FileAppender
+      appender.file.name=org.apache.log4j.FileAppender
+      appender.file.type=FILE
+      appender.file.append=false
+      appender.file.fileName =${log.file}
+      appender.file.layout.type=PatternLayout
+      appender.file.layout.pattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
+      logger.yarn.name=org.apache.flink.yarn
+      logger.yarn.level=INFO
+      logger.yarn.appenderRef.console.ref=org.apache.log4j.ConsoleAppender
+      logger.yarncli.name=org.apache.flink.yarn.cli.FlinkYarnSessionCli
+      logger.yarncli.level=INFO
+      logger.yarncli.appenderRef.console.ref=org.apache.log4j.ConsoleAppender
+      logger.hadoop.name=org.apache.hadoop
+      logger.hadoop.level=INFO
+      logger.hadoop.appenderRef.console.ref=org.apache.log4j.ConsoleAppender
+      appender.console.name=org.apache.log4j.ConsoleAppender
+      appender.console.type=CONSOLE
+      appender.console.layout.type=PatternLayout
+      appender.console.layout.pattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
+      logger.hadoopnative.name=org.apache.hadoop.util.NativeCodeLoader
+      logger.hadoopnative.level=OFF
+      logger.netty.name=org.apache.flink.shaded.akka.org.jboss.netty.channel.DefaultChannelPipeline
+      logger.netty.level=OFF
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: ${APPLICATION_NAME}-jobmanager
+    labels:
+      app: ${APPLICATION_NAME}
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: ${APPLICATION_NAME}
+        component: jobmanager
+    template:
+      metadata:
+        labels:
+          app: ${APPLICATION_NAME}
+          component: jobmanager
+      spec:
+        serviceAccountName: anyuid
+        nodeSelector:
+          dsri.unimaas.nl/cpu: 'true'
+        containers:
+        - name: jobmanager
+          image: ${FLINK_IMAGE}
+          workingDir: /opt/flink
+          command: ["/bin/bash", "-c", "$FLINK_HOME/bin/jobmanager.sh start;\
+            while :;
+            do
+              if [[ -f $(find log -name '*jobmanager*.log' -print -quit) ]];
+                then tail -f -n +1 log/*jobmanager*.log;
+              fi;
+            done"]
+          ports:
+          - containerPort: 6123
+            name: rpc
+          - containerPort: 6124
+            name: blob
+          - containerPort: 8081
+            name: ui
+          livenessProbe:
+            tcpSocket:
+              port: 6123
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          volumeMounts:
+          - name: flink-config-volume
+            mountPath: /opt/flink/conf
+          - name: pvc-volume
+            mountPath: /mnt
+            subPath: "${STORAGE_FOLDER}"
+          resources:
+            limits:
+              cpu: "${CPU_LIMIT}"
+              memory: "${MEMORY_LIMIT}"
+          securityContext:
+            runAsUser: 9999  # refers to user _flink_ from official flink image, change if necessary
+            # supplementalGroups:
+            # - 100
+          automountServiceAccountToken: false
+        volumes:
+        - name: flink-config-volume
+          configMap:
+            name: ${APPLICATION_NAME}-config
+            items:
+            - key: flink-conf.yaml
+              path: flink-conf.yaml
+            - key: log4j.properties
+              path: log4j.properties
+            - key: log4j-cli.properties
+              path: log4j-cli.properties
+        - name: pvc-volume
+          persistentVolumeClaim:
+            claimName: ${STORAGE_NAME}
+            # claimName: ${APPLICATION_NAME}
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${APPLICATION_NAME}-jobmanager
+    labels:
+      app: ${APPLICATION_NAME}
+  spec:
+    type: ClusterIP
+    ports:
+    - name: rpc
+      port: 6123
+    - name: blob
+      port: 6124
+    - name: ui
+      port: 8081
+    selector:
+      app: ${APPLICATION_NAME}
+      component: jobmanager
+
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: ${APPLICATION_NAME}-taskmanager
+    labels:
+      app: "${APPLICATION_NAME}"
+  spec:
+    replicas: 4
+    selector:
+      matchLabels:
+        app: ${APPLICATION_NAME}
+        component: taskmanager
+    template:
+      metadata:
+        labels:
+          app: ${APPLICATION_NAME}
+          component: taskmanager
+      spec:
+        serviceAccountName: anyuid
+        nodeSelector:
+          dsri.unimaas.nl/cpu: 'true'
+        containers:
+        - name: taskmanager
+          image: ${FLINK_IMAGE}
+          workingDir: /opt/flink
+          command: ["/bin/bash", "-c", "$FLINK_HOME/bin/taskmanager.sh start; \
+            while :;
+            do
+              if [[ -f $(find log -name '*taskmanager*.log' -print -quit) ]];
+                then tail -f -n +1 log/*taskmanager*.log;
+              fi;
+            done"]
+          ports:
+          - containerPort: 6122
+            name: rpc
+          livenessProbe:
+            tcpSocket:
+              port: 6122
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          volumeMounts:
+          - name: flink-config-volume
+            mountPath: /opt/flink/conf/
+          - name: pvc-volume
+            mountPath: /mnt
+            subPath: "${STORAGE_FOLDER}"
+          resources:
+            limits:
+              cpu: "${CPU_LIMIT}"
+              memory: "${MEMORY_LIMIT}"
+          securityContext:
+            runAsUser: 9999  # refers to user _flink_ from official flink image, change if necessary
+            # supplementalGroups:
+            # - 100
+          automountServiceAccountToken: false
+        volumes:
+        - name: flink-config-volume
+          configMap:
+            name: ${APPLICATION_NAME}-config
+            items:
+            - key: flink-conf.yaml
+              path: flink-conf.yaml
+            - key: log4j.properties
+              path: log4j.properties
+            - key: log4j-cli.properties
+              path: log4j-cli.properties
+        - name: pvc-volume
+          persistentVolumeClaim:
+            claimName: ${STORAGE_NAME}
+            # claimName: ${APPLICATION_NAME}
+
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${APPLICATION_NAME}-jobmanager-rest
+    labels:
+      app: "${APPLICATION_NAME}"
+  spec:
+    type: NodePort
+    ports:
+    - name: rest
+      port: 8081
+      targetPort: 8081
+    selector:
+      app: ${APPLICATION_NAME}
+      component: jobmanager
+
+- kind: Route
+  apiVersion: v1
+  metadata:
+    name: "${APPLICATION_NAME}"
+    labels:
+      app: "${APPLICATION_NAME}"
+  spec:
+    host: ''
+    to:
+      kind: Service
+      name: "${APPLICATION_NAME}-jobmanager-rest"
+      weight: 100
+    port:
+      targetPort: 8081
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect

@@ -14,6 +14,8 @@ spec:
         app: flink
         component: taskmanager
     spec:
+      nodeSelector:
+        dsri.unimaas.nl/cpu: 'true'
       containers:
       - name: taskmanager
         image: umids/flink-rmlstreamer:v2.0.0
