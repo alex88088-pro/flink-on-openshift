@@ -12,6 +12,7 @@ metadata:
 
       Apache Flink® is an open-source stream processing framework for distributed, high-performing, always-available, and accurate data streaming applications.
 
+      🗄️ Data stored on an existing persistent storage in the specified folder
 
       🔒 You need root containers enabled (aka. anyuid) in your project to start this application.
     iconClass: icon-apache
@@ -31,11 +32,11 @@ parameters:
 # - name: PASSWORD
 #   from: "[a-f0-9]{32}"
 #   generate: expression
-- name: STORAGE_SIZE
-  displayName: Storage size
-  description: Size of the storage used for the notebook (approximate).
-  value: 20Gi
-  required: true
+# - name: STORAGE_SIZE
+#   displayName: Storage size
+#   description: Size of the storage used for the notebook (approximate).
+#   value: 20Gi
+#   required: true
 - name: MEMORY_LIMIT
   displayName: Memory limit
   description: Maximum RAM memory available for the application.
@@ -46,21 +47,18 @@ parameters:
   description: Number of CPUs available for the application (in millicore, 1 CPU = 1000m).
   value: "4000m"
   required: true
+- name: STORAGE_NAME
+  displayName: Storage name
+  description: Name of the Persistent Volume Claim used for storage.
+  value: pvc-mapr-projects-myproject
+  required: true
+- name: STORAGE_FOLDER
+  displayName: Storage folder
+  description: Path to the folder used for storage in the the Persistent Volume Claim
+  value: flink
+  required: false
 
 objects:
-- apiVersion: "v1"
-  kind: "PersistentVolumeClaim"
-  metadata:
-    name: ${APPLICATION_NAME}
-    labels:
-      app: "${APPLICATION_NAME}"
-  spec:
-    accessModes:
-      - "ReadWriteMany"
-    resources:
-      requests:
-        storage: ${STORAGE_SIZE}
-
 - apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -131,6 +129,9 @@ objects:
           app: ${APPLICATION_NAME}
           component: jobmanager
       spec:
+        serviceAccountName: anyuid
+        nodeSelector:
+          dsri.unimaas.nl/cpu: 'true'
         containers:
         - name: jobmanager
           image: ${FLINK_IMAGE}
@@ -159,12 +160,16 @@ objects:
             mountPath: /opt/flink/conf
           - name: pvc-volume
             mountPath: /mnt
+            subPath: "${STORAGE_FOLDER}"
           resources:
             limits:
               cpu: "${CPU_LIMIT}"
               memory: "${MEMORY_LIMIT}"
           securityContext:
             runAsUser: 9999  # refers to user _flink_ from official flink image, change if necessary
+            # supplementalGroups:
+            # - 100
+          # automountServiceAccountToken: false
         volumes:
         - name: flink-config-volume
           configMap:
@@ -178,7 +183,8 @@ objects:
               path: log4j-cli.properties
         - name: pvc-volume
           persistentVolumeClaim:
-            claimName: ${APPLICATION_NAME}
+            claimName: ${STORAGE_NAME}
+            # claimName: ${APPLICATION_NAME}
 
 - apiVersion: v1
   kind: Service
@@ -217,6 +223,9 @@ objects:
           app: ${APPLICATION_NAME}
           component: taskmanager
       spec:
+        serviceAccountName: anyuid
+        nodeSelector:
+          dsri.unimaas.nl/cpu: 'true'
         containers:
         - name: taskmanager
           image: ${FLINK_IMAGE}
@@ -241,12 +250,16 @@ objects:
             mountPath: /opt/flink/conf/
           - name: pvc-volume
             mountPath: /mnt
+            subPath: "${STORAGE_FOLDER}"
           resources:
             limits:
               cpu: "${CPU_LIMIT}"
               memory: "${MEMORY_LIMIT}"
           securityContext:
             runAsUser: 9999  # refers to user _flink_ from official flink image, change if necessary
+            # supplementalGroups:
+            # - 100
+          # automountServiceAccountToken: false
         volumes:
         - name: flink-config-volume
           configMap:
@@ -260,7 +273,8 @@ objects:
               path: log4j-cli.properties
         - name: pvc-volume
           persistentVolumeClaim:
-            claimName: ${APPLICATION_NAME}
+            claimName: ${STORAGE_NAME}
+            # claimName: ${APPLICATION_NAME}
 
 
 - apiVersion: v1
@@ -296,3 +310,16 @@ objects:
     tls:
       termination: edge
       insecureEdgeTerminationPolicy: Redirect
+
+# - apiVersion: v1
+#   kind: PersistentVolumeClaim
+#   metadata:
+#     name: ${APPLICATION_NAME}
+#     labels:
+#       app: "${APPLICATION_NAME}"
+#   spec:
+#     accessModes:
+#       - "ReadWriteMany"
+#     resources:
+#       requests:
+#         storage: ${STORAGE_SIZE}
