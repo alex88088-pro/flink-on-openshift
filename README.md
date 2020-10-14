@@ -4,15 +4,15 @@ Deployment written from the [official Flink Kubernetes documentation](https://ci
 
 ## Add template
 
-You need `anyuid` containers enabled to start this application 🔒
+You need `anyuid` enabled to start this application 🔒
 
 ```bash
 oc apply -f https://raw.githubusercontent.com/vemonet/flink-on-openshift/master/template-flink.yml
 ```
 
-> Flink home folder inside the pods is `/opt/flink`
+* Flink home folder inside the pods is `/opt/flink`
 
-> PVC shared in `/mnt` inside the pods.
+* Persistent storage shared in `/mnt` inside the pods
 
 ## Template for the DSRI
 

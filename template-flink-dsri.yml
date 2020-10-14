@@ -32,6 +32,16 @@ parameters:
 # - name: PASSWORD
 #   from: "[a-f0-9]{32}"
 #   generate: expression
+- name: WORKER_COUNT
+  displayName: Number of worker pods
+  description: Number of worker pods in the cluster.
+  value: "4"
+  required: true
+- name: TASKS_SLOTS
+  displayName: Number of tasks slots
+  description: Number of tasks slots per worker.
+  value: "64"
+  required: true
 # - name: STORAGE_SIZE
 #   displayName: Storage size
 #   description: Size of the storage used for the notebook (approximate).
@@ -40,12 +50,12 @@ parameters:
 - name: MEMORY_LIMIT
   displayName: Memory limit
   description: Maximum RAM memory available for the application.
-  value: "10Gi"
+  value: "60Gi"
   required: true
 - name: CPU_LIMIT
   displayName: CPU limit
   description: Number of CPUs available for the application (in millicore, 1 CPU = 1000m).
-  value: "4000m"
+  value: "32000m"
   required: true
 - name: STORAGE_NAME
   displayName: Storage name
@@ -68,7 +78,7 @@ objects:
   data:
     flink-conf.yaml: |+
       jobmanager.rpc.address: ${APPLICATION_NAME}-jobmanager
-      taskmanager.numberOfTaskSlots: 64
+      taskmanager.numberOfTaskSlots: ${TASKS_SLOTS}
       blob.server.port: 6124
       jobmanager.rpc.port: 6123
       taskmanager.rpc.port: 6122
@@ -212,7 +222,7 @@ objects:
     labels:
       app: "${APPLICATION_NAME}"
   spec:
-    replicas: 4
+    replicas: ${WORKER_COUNT}
     selector:
       matchLabels:
         app: ${APPLICATION_NAME}
