@@ -11,10 +11,6 @@ metadata:
       Start Apache Flink cluster 🐿️
 
       Apache Flink® is an open-source stream processing framework for distributed, high-performing, always-available, and accurate data streaming applications.
-
-      🗄️ Data stored on an existing persistent storage in the specified folder
-
-      🔒 You need root containers enabled (aka. anyuid) in your project to start this application.
     iconClass: icon-apache
     tags: apache,flink,stream,scala
     openshift.io/provider-display-name: Institute of Data Science, UM
@@ -57,16 +53,21 @@ parameters:
   description: Number of CPUs available for the application (in millicore, 1 CPU = 1000m).
   value: "32000m"
   required: true
-- name: STORAGE_NAME
-  displayName: Storage name
-  description: Name of the Persistent Volume Claim used for storage.
-  value: pvc-mapr-projects-myproject
+- name: STORAGE_SIZE
+  displayName: Storage size
+  description: Size of the storage used for the notebook (approximate).
+  value: 100Gi
   required: true
-- name: STORAGE_FOLDER
-  displayName: Storage folder
-  description: Path to the folder used for storage in the the Persistent Volume Claim
-  value: flink
-  required: false
+# - name: STORAGE_NAME
+#   displayName: Storage name
+#   description: Name of the Persistent Volume Claim used for storage.
+#   value: pvc-mapr-projects-myproject
+#   required: true
+# - name: STORAGE_FOLDER
+#   displayName: Storage folder
+#   description: Path to the folder used for storage in the the Persistent Volume Claim
+#   value: flink
+#   required: false
 
 objects:
 - apiVersion: v1
@@ -121,6 +122,20 @@ objects:
       logger.hadoopnative.level=OFF
       logger.netty.name=org.apache.flink.shaded.akka.org.jboss.netty.channel.DefaultChannelPipeline
       logger.netty.level=OFF
+
+- apiVersion: "v1"
+  kind: "PersistentVolumeClaim"
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: "${APPLICATION_NAME}"
+  spec:
+    accessModes:
+      - "ReadWriteMany"
+    resources:
+      requests:
+        storage: ${STORAGE_SIZE}
+
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -140,8 +155,8 @@ objects:
           component: jobmanager
       spec:
         serviceAccountName: anyuid
-        nodeSelector:
-          dsri.unimaas.nl/cpu: 'true'
+        # nodeSelector:
+        #   dsri.unimaas.nl/cpu: 'true'
         containers:
         - name: jobmanager
           image: ${FLINK_IMAGE}
@@ -193,8 +208,8 @@ objects:
               path: log4j-cli.properties
         - name: pvc-volume
           persistentVolumeClaim:
-            claimName: ${STORAGE_NAME}
-            # claimName: ${APPLICATION_NAME}
+            claimName: ${APPLICATION_NAME}
+            # claimName: ${STORAGE_NAME}
 
 - apiVersion: v1
   kind: Service
@@ -234,8 +249,8 @@ objects:
           component: taskmanager
       spec:
         serviceAccountName: anyuid
-        nodeSelector:
-          dsri.unimaas.nl/cpu: 'true'
+        # nodeSelector:
+        #   dsri.unimaas.nl/cpu: 'true'
         containers:
         - name: taskmanager
           image: ${FLINK_IMAGE}
@@ -283,8 +298,8 @@ objects:
               path: log4j-cli.properties
         - name: pvc-volume
           persistentVolumeClaim:
-            claimName: ${STORAGE_NAME}
-            # claimName: ${APPLICATION_NAME}
+            claimName: ${APPLICATION_NAME}
+            # claimName: ${STORAGE_NAME}
 
 
 - apiVersion: v1
@@ -320,16 +335,3 @@ objects:
     tls:
       termination: edge
       insecureEdgeTerminationPolicy: Redirect
-
-# - apiVersion: v1
-#   kind: PersistentVolumeClaim
-#   metadata:
-#     name: ${APPLICATION_NAME}
-#     labels:
-#       app: "${APPLICATION_NAME}"
-#   spec:
-#     accessModes:
-#       - "ReadWriteMany"
-#     resources:
-#       requests:
-#         storage: ${STORAGE_SIZE}
