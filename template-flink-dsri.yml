@@ -1,6 +1,6 @@
 ---
 kind: Template
-apiVersion: v1
+apiVersion: template.openshift.io/v1
 labels:
   template: apache-flink
 metadata:
@@ -11,23 +11,21 @@ metadata:
       Start Apache Flink cluster 🐿️
 
       Apache Flink® is an open-source stream processing framework for distributed, high-performing, always-available, and accurate data streaming applications.
+
+      Visit the documentation for Flink CLI: https://ci.apache.org/projects/flink/flink-docs-release-1.13/docs/deployment/cli/
     iconClass: icon-apache
     tags: apache,flink,stream,scala
     openshift.io/provider-display-name: Institute of Data Science, UM
     openshift.io/documentation-url: https://maastrichtu-ids.github.io/dsri-documentation/docs/deploy-additional-services#apache-flink
     openshift.io/support-url: https://maastrichtu-ids.github.io/dsri-documentation/help
-    template.openshift.io/bindable: 'false'
 parameters:
 - name: APPLICATION_NAME
-  value: flink-cluster
+  value: flink
   required: true
 - name: FLINK_IMAGE
-  value: flink:1.9.1-scala_2.11
+  value: flink:1.11.3-scala_2.12-java11
   required: true
   description: For the RMLStreamer use umids/flink-rmlstreamer:v2.0.0
-# - name: PASSWORD
-#   from: "[a-f0-9]{32}"
-#   generate: expression
 - name: WORKER_COUNT
   displayName: Number of worker pods
   description: Number of worker pods in the cluster.
@@ -38,24 +36,19 @@ parameters:
   description: Number of tasks slots per worker.
   value: "64"
   required: true
-# - name: STORAGE_SIZE
-#   displayName: Storage size
-#   description: Size of the storage used for the notebook (approximate).
-#   value: 20Gi
-#   required: true
-- name: MEMORY_LIMIT
-  displayName: Memory limit
-  description: Maximum RAM memory available for the application.
-  value: "60Gi"
-  required: true
 - name: CPU_LIMIT
   displayName: CPU limit
   description: Number of CPUs available for the application (in millicore, 1 CPU = 1000m).
   value: "32000m"
   required: true
+- name: MEMORY_LIMIT
+  displayName: Memory limit
+  description: Maximum RAM memory available for the application.
+  value: "60Gi"
+  required: true
 - name: STORAGE_SIZE
   displayName: Storage size
-  description: Size of the storage used for the notebook (approximate).
+  description: Size of the storage used for /mnt folder
   value: 100Gi
   required: true
 # - name: STORAGE_NAME
@@ -68,6 +61,9 @@ parameters:
 #   description: Path to the folder used for storage in the the Persistent Volume Claim
 #   value: flink
 #   required: false
+# - name: PASSWORD
+#   from: "[a-f0-9]{32}"
+#   generate: expression
 
 objects:
 - apiVersion: v1
@@ -237,7 +233,7 @@ objects:
     labels:
       app: "${APPLICATION_NAME}"
   spec:
-    replicas: ${WORKER_COUNT}
+    replicas: "${{WORKER_COUNT}}"
     selector:
       matchLabels:
         app: ${APPLICATION_NAME}
