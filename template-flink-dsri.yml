@@ -23,9 +23,9 @@ parameters:
   value: flink
   required: true
 - name: FLINK_IMAGE
-  value: flink:1.11.3-scala_2.12-java11
+  value: flink:1.12.3-scala_2.11
   required: true
-  description: For the RMLStreamer use umids/flink-rmlstreamer:v2.0.0
+  description: Image used for Flink master and workers, feel free to customize it
 - name: WORKER_COUNT
   displayName: Number of worker pods
   description: Number of worker pods in the cluster.
@@ -50,6 +50,11 @@ parameters:
   displayName: Storage size
   description: Size of the storage used for /mnt folder
   value: 100Gi
+  required: true
+- name: LOG_LEVEL
+  displayName: Log level
+  description: Flink log level
+  value: INFO
   required: true
 # - name: STORAGE_NAME
 #   displayName: Storage name
@@ -82,18 +87,18 @@ objects:
       jobmanager.heap.size: 50g
       taskmanager.memory.process.size: 50g
     log4j.properties: |+
-      log4j.rootLogger=INFO, file
-      log4j.logger.akka=INFO
-      log4j.logger.org.apache.kafka=INFO
-      log4j.logger.org.apache.hadoop=INFO
-      log4j.logger.org.apache.zookeeper=INFO
+      log4j.rootLogger=${LOG_LEVEL}, file
+      log4j.logger.akka=${LOG_LEVEL}
+      log4j.logger.org.apache.kafka=${LOG_LEVEL}
+      log4j.logger.org.apache.hadoop=${LOG_LEVEL}
+      log4j.logger.org.apache.zookeeper=${LOG_LEVEL}
       log4j.appender.file=org.apache.log4j.FileAppender
       log4j.appender.file.file=${log.file}
       log4j.appender.file.layout=org.apache.log4j.PatternLayout
       log4j.appender.file.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
       log4j.logger.org.apache.flink.shaded.akka.org.jboss.netty.channel.DefaultChannelPipeline=ERROR, file
     log4j-cli.properties: |+
-      rootLogger.level=INFO
+      rootLogger.level=${LOG_LEVEL}
       rootLogger.appenderRef.file.ref=org.apache.log4j.FileAppender
       appender.file.name=org.apache.log4j.FileAppender
       appender.file.type=FILE
@@ -102,13 +107,13 @@ objects:
       appender.file.layout.type=PatternLayout
       appender.file.layout.pattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
       logger.yarn.name=org.apache.flink.yarn
-      logger.yarn.level=INFO
+      logger.yarn.level=${LOG_LEVEL}
       logger.yarn.appenderRef.console.ref=org.apache.log4j.ConsoleAppender
       logger.yarncli.name=org.apache.flink.yarn.cli.FlinkYarnSessionCli
-      logger.yarncli.level=INFO
+      logger.yarncli.level=${LOG_LEVEL}
       logger.yarncli.appenderRef.console.ref=org.apache.log4j.ConsoleAppender
       logger.hadoop.name=org.apache.hadoop
-      logger.hadoop.level=INFO
+      logger.hadoop.level=${LOG_LEVEL}
       logger.hadoop.appenderRef.console.ref=org.apache.log4j.ConsoleAppender
       appender.console.name=org.apache.log4j.ConsoleAppender
       appender.console.type=CONSOLE
@@ -118,6 +123,16 @@ objects:
       logger.hadoopnative.level=OFF
       logger.netty.name=org.apache.flink.shaded.akka.org.jboss.netty.channel.DefaultChannelPipeline
       logger.netty.level=OFF
+    log4j-console.properties: |+
+      log4j.rootLogger=${LOG_LEVEL}, file
+      log4j.logger.akka=${LOG_LEVEL}
+      log4j.logger.org.apache.kafka=${LOG_LEVEL}
+      log4j.logger.org.apache.hadoop=${LOG_LEVEL}
+      log4j.logger.org.apache.zookeeper=${LOG_LEVEL}
+      log4j.appender.file=org.apache.log4j.FileAppender
+      log4j.appender.file.file=${log.file}
+      log4j.appender.file.layout=org.apache.log4j.PatternLayout
+      log4j.appender.file.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
 
 - apiVersion: "v1"
   kind: "PersistentVolumeClaim"
@@ -131,6 +146,23 @@ objects:
     resources:
       requests:
         storage: ${STORAGE_SIZE}
+
+- kind: "ImageStream"
+  apiVersion: image.openshift.io/v1
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+  spec:
+    tags:
+    - name: latest
+      from:
+        kind: DockerImage
+        name: ${FLINK_IMAGE}
+      importPolicy:
+        scheduled: false
+    lookupPolicy:
+      local: true
 
 - apiVersion: apps/v1
   kind: Deployment
@@ -155,7 +187,7 @@ objects:
         #   dsri.unimaas.nl/cpu: 'true'
         containers:
         - name: jobmanager
-          image: ${FLINK_IMAGE}
+          image: "${APPLICATION_NAME}:latest"
           workingDir: /opt/flink
           command: ["/bin/bash", "-c", "$FLINK_HOME/bin/jobmanager.sh start;\
             while :;
@@ -182,6 +214,9 @@ objects:
           - name: pvc-volume
             mountPath: /mnt
             subPath: "${STORAGE_FOLDER}"
+          env:
+          - name: FLINK_ENV_JAVA_OPTS
+            value: "-Dlog.file=/opt/flink/log/jobmanager.log"
           resources:
             limits:
               cpu: "${CPU_LIMIT}"
@@ -202,6 +237,8 @@ objects:
               path: log4j.properties
             - key: log4j-cli.properties
               path: log4j-cli.properties
+            - key: log4j-console.properties
+              path: log4j-console.properties
         - name: pvc-volume
           persistentVolumeClaim:
             claimName: ${APPLICATION_NAME}
@@ -249,7 +286,7 @@ objects:
         #   dsri.unimaas.nl/cpu: 'true'
         containers:
         - name: taskmanager
-          image: ${FLINK_IMAGE}
+          image: "${APPLICATION_NAME}:latest"
           workingDir: /opt/flink
           command: ["/bin/bash", "-c", "$FLINK_HOME/bin/taskmanager.sh start; \
             while :;
@@ -272,6 +309,9 @@ objects:
           - name: pvc-volume
             mountPath: /mnt
             subPath: "${STORAGE_FOLDER}"
+          env:
+          - name: FLINK_ENV_JAVA_OPTS
+            value: "-Dlog.file=/opt/flink/log/taskmanager.log"
           resources:
             limits:
               cpu: "${CPU_LIMIT}"
